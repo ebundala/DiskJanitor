@@ -2,6 +2,10 @@
 
 A small Avalonia desktop app that finds the usual disk hogs on a developer machine and lets you delete them one at a time, showing what each item is and what depends on it before you delete.
 
+**Website:** https://ebundala.github.io/DiskJanitor/
+
+![Disk Janitor showing a sample scan: categories with sizes on the left, items with Delete buttons on the right](docs/screenshots/everything-light.png)
+
 | Category | What's listed | How it's deleted |
 |---|---|---|
 | Project build folders | `node_modules`, `build`, `dist`, `.next`, `bin`/`obj`, `.dart_tool`, `.gradle`, `target`, `.venv`, `vendor`, … under the project folders | folder removed |
@@ -60,6 +64,14 @@ Release packages (tarball, .deb, AppImage) into `dist/`:
 
 ```bash
 packaging/build-packages.sh 1.2.3
+```
+
+## Website and screenshots
+
+The site is plain HTML in [docs/](docs/), served by GitHub Pages from `main`. The screenshots are rendered from the real window with made-up sample data, so they never show your own files:
+
+```bash
+dotnet run --project tools/Screenshots -- docs/screenshots
 ```
 
 ## Releasing

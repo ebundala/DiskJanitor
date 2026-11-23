@@ -10,8 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    
+
     <AvaloniaResource Include="Assets\**" />
+    <!-- tools/ holds separate projects (e.g. tools/Screenshots). -->
+    <Compile Remove="tools/**" />
+    <AvaloniaXaml Remove="tools/**" />
+    <None Remove="tools/**" />
   </ItemGroup>
 
   <ItemGroup>

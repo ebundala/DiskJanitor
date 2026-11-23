@@ -21,11 +21,16 @@ public partial class MainViewModel : ViewModelBase
 {
     readonly Dictionary<string, CategoryViewModel> _categoriesByName = [];
     readonly CategoryViewModel _everything;
+    readonly Func<IScanner[]> _createScanners;
     CancellationTokenSource? _scanCts;
     bool _recalculatePending;
 
-    public MainViewModel()
+    /// <param name="createScanners">Scanners to run on each scan; the real ones by default
+    /// (tools/Screenshots passes sample data).</param>
+    public MainViewModel(Func<IScanner[]>? createScanners = null)
     {
+        _createScanners = createScanners ?? (() =>
+            [new ProjectArtifactsScanner(), new DockerScanner(), new CacheScanner(), new TrashScanner(), new SystemScanner()]);
         _everything = new CategoryViewModel("Everything", "All reclaimable items, largest first. Use the categories on the left to focus on one kind.");
         Categories.Add(_everything);
         foreach (var (name, description) in Scanners.Categories.All)
@@ -47,7 +52,7 @@ public partial class MainViewModel : ViewModelBase
 
     public bool IsRoot => UserContext.IsRoot;
 
-    public string UserText => IsRoot
+    public string UserText { get; init; } = UserContext.IsRoot
         ? $"Running as root · cleaning {UserContext.UserName}'s home ({UserContext.Home})"
         : $"Running as {UserContext.UserName} · items marked “needs root” require “Relaunch as root”";
 
@@ -116,11 +121,12 @@ public partial class MainViewModel : ViewModelBase
         StatusText = "Scanning…";
 
         var context = new ScanContext(UserContext.Home, ParseProjectRoots());
-        IScanner[] scanners = [new ProjectArtifactsScanner(), new DockerScanner(), new CacheScanner(), new TrashScanner(), new SystemScanner()];
+        var scanners = _createScanners();
         var notes = new ConcurrentBag<string>();
         try
         {
             await Task.WhenAll(scanners.Select(s => RunScannerAsync(s, context, notes, ct)));
+            RecalculateNow(); // totals are otherwise updated on a deferred dispatcher job
             StatusText = $"Found {Bytes.Format(_everything.Total)} in {_everything.Items.Count} items."
                          + (notes.IsEmpty ? "" : "  ⚠ " + string.Join("  ⚠ ", notes));
         }
