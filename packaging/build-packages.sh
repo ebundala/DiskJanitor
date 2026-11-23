@@ -2,7 +2,9 @@
 # Builds the release files for one version:
 #   DiskJanitor-linux-x64.tar.gz, diskjanitor_<version>_amd64.deb, DiskJanitor-x86_64.AppImage, SHA256SUMS
 # Usage: packaging/build-packages.sh <version> [output-dir]     (version without the leading "v")
+# Needs: dotnet SDK, dpkg-deb, desktop-file-validate (package desktop-file-utils), curl.
 set -euo pipefail
+command -v desktop-file-validate > /dev/null || { echo "Install desktop-file-utils (appimagetool needs desktop-file-validate)" >&2; exit 1; }
 
 VERSION="${1:?usage: $0 <version> [output-dir]}"
 VERSION="${VERSION#v}"
