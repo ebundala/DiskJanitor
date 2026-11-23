@@ -1,0 +1,151 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DiskJanitor.ViewModels"
+        xmlns:m="using:DiskJanitor.Models"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
+        x:Class="DiskJanitor.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Width="1240" Height="820" MinWidth="900" MinHeight="560"
+        WindowStartupLocation="CenterScreen"
+        Title="Disk Janitor">
+
+    <Design.DataContext>
+        <vm:MainViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Header: who we are, disk usage, actions -->
+        <Border Grid.Row="0" Padding="20,14" BorderBrush="#30808080" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <StackPanel Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="Disk Janitor" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Classes="muted" FontSize="12" Text="{Binding UserText}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="40,0" Spacing="6" VerticalAlignment="Center" MaxWidth="560">
+                    <TextBlock Text="{Binding DiskText}" />
+                    <ProgressBar Value="{Binding DiskPercent}" Maximum="100" Height="8" MinWidth="200"
+                                 Classes.danger="{Binding DiskCritical}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Content="Relaunch as root" Command="{Binding RelaunchAsRootCommand}"
+                            IsVisible="{Binding !IsRoot}"
+                            ToolTip.Tip="Restart with administrator rights so system items and root-owned files can be deleted" />
+                    <Button Classes="accent" MinWidth="90" HorizontalContentAlignment="Center"
+                            Content="{Binding ScanButtonText}" Command="{Binding ScanCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="290,*">
+
+            <!-- Categories -->
+            <Border BorderBrush="#30808080" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Margin="14" Spacing="6">
+                        <TextBlock Classes="muted" FontSize="12" Text="Project folders to scan (separate with ;)" />
+                        <TextBox Text="{Binding ProjectRoots}" />
+                    </StackPanel>
+                    <ListBox ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory}"
+                             Background="Transparent" Margin="6,8">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CategoryViewModel">
+                                <Grid ColumnDefinitions="*,Auto" Margin="2,4">
+                                    <StackPanel Spacing="1">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <TextBlock Classes="muted" FontSize="12" Text="{Binding CountText}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding TotalText}" VerticalAlignment="Center"
+                                               FontWeight="SemiBold" Margin="8,0,0,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- Items -->
+            <DockPanel Grid.Column="1" Margin="20,14,20,0">
+                <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,10">
+                    <TextBlock Text="{Binding SelectedCategory.Name}" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Classes="muted" TextWrapping="Wrap" Text="{Binding SelectedCategory.Description}" />
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                        <TextBox PlaceholderText="Filter by name, project, path or image…" Text="{Binding Filter}" />
+                        <CheckBox Grid.Column="1" Margin="14,0,0,0" IsChecked="{Binding OnlySafe}"
+                                  Content="Hide items something depends on" />
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <TextBlock Classes="muted" FontSize="12" Text="No stripe: nothing known depends on it" />
+                        <TextBlock Classes="warning" FontSize="12" Text="▌ Orange: referenced by a project or holds data" />
+                        <TextBlock Classes="error" FontSize="12" Text="▌ Red: in use right now" />
+                    </StackPanel>
+                </StackPanel>
+
+                <Panel>
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding VisibleItems}" Margin="0,0,4,12">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="m:CleanupItem">
+                                    <Border Classes="card"
+                                            Classes.caution="{Binding IsCaution}"
+                                            Classes.danger="{Binding IsDanger}"
+                                            Classes.deleted="{Binding IsDeleted}">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <StackPanel Spacing="4">
+                                                <WrapPanel>
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="15"
+                                                               Margin="0,0,10,0" VerticalAlignment="Center" />
+                                                    <Border Classes="chip" Margin="0,0,6,0">
+                                                        <TextBlock Text="{Binding Kind}" />
+                                                    </Border>
+                                                    <Border Classes="chip root" IsVisible="{Binding RequiresRoot}">
+                                                        <TextBlock Text="needs root" />
+                                                    </Border>
+                                                </WrapPanel>
+                                                <TextBlock Classes="muted" FontFamily="monospace" FontSize="12"
+                                                           Text="{Binding Location}" TextTrimming="CharacterEllipsis"
+                                                           ToolTip.Tip="{Binding Location}" />
+                                                <TextBlock Text="{Binding Details}" TextWrapping="Wrap" FontSize="13"
+                                                           IsVisible="{Binding Details, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                <TextBlock Classes="warning" Text="{Binding Warning}" TextWrapping="Wrap" FontSize="13"
+                                                           IsVisible="{Binding Warning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                                <TextBlock Text="{Binding Status}" TextWrapping="Wrap" FontSize="13" FontWeight="SemiBold"
+                                                           Classes.error="{Binding StatusIsError}"
+                                                           Classes.ok="{Binding !StatusIsError}"
+                                                           IsVisible="{Binding Status, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontSize="17" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" TextAlignment="Right" MinWidth="100" Margin="16,0" />
+
+                                            <Button Grid.Column="2" Classes="danger" Content="Delete" MinWidth="80"
+                                                    HorizontalContentAlignment="Center" VerticalAlignment="Center"
+                                                    Command="{Binding DeleteCommand}" IsEnabled="{Binding CanDelete}"
+                                                    ToolTip.Tip="{Binding DeleteTooltip}" ToolTip.ShowOnDisabled="True" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <TextBlock Classes="muted" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="15" />
+                </Panel>
+            </DockPanel>
+        </Grid>
+
+        <!-- Status bar -->
+        <Border Grid.Row="2" Padding="20,8" BorderBrush="#30808080" BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding StatusText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding StatusText}" />
+                <TextBlock Grid.Column="1" Classes="ok" FontWeight="SemiBold" Text="{Binding FreedText}" Margin="16,0,0,0" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
