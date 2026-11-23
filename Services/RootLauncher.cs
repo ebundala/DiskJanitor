@@ -40,7 +40,8 @@ public static class RootLauncher
             args.Add($"WAYLAND_DISPLAY={(Path.IsPathRooted(wayland) ? wayland : Path.Combine(runtimeDir, wayland))}");
         }
         args.Add($"DISKJANITOR_USER={UserContext.UserName}");
-        args.Add($"DOTNET_ROOT={DotnetRoot()}");
+        if (DotnetRoot() is { } dotnetRoot)
+            args.Add($"DOTNET_ROOT={dotnetRoot}");
         args.Add("NO_AT_BRIDGE=1");
 
         var (exe, exeArgs) = CurrentCommand();
@@ -99,13 +100,16 @@ public static class RootLauncher
             : (exe, []);
     }
 
-    static string DotnetRoot()
+    /// <returns>null for a self-contained single-file build, which carries its own runtime.</returns>
+    static string? DotnetRoot()
     {
         if (Environment.GetEnvironmentVariable("DOTNET_ROOT") is { Length: > 0 } root)
             return root;
         // .../dotnet/shared/Microsoft.NETCore.App/<version>/System.Private.CoreLib.dll
-        var runtimeDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
-        return Path.GetFullPath(Path.Combine(runtimeDir, "..", "..", ".."));
+        var coreLib = typeof(object).Assembly.Location;
+        if (coreLib.Length == 0)
+            return null;
+        return Path.GetFullPath(Path.Combine(Path.GetDirectoryName(coreLib)!, "..", "..", ".."));
     }
 
     static void TryDelete(string path)

@@ -16,7 +16,19 @@ A small Avalonia desktop app that finds the usual disk hogs on a developer machi
 
 Card colours: no stripe = nothing known depends on it, orange = referenced by a project or may hold data, red = in use right now.
 
-## Run
+## Download
+
+Get `DiskJanitor-linux-x64.tar.gz` from [Releases](https://github.com/ebundala/DiskJanitor/releases). It is a single self-contained binary for 64-bit Linux and does not need .NET installed.
+
+```bash
+tar -xzf DiskJanitor-linux-x64.tar.gz
+./DiskJanitor            # open the app
+./DiskJanitor --report   # print a scan in the terminal, deletes nothing
+```
+
+Use **Relaunch as root** inside the app to clean system items (needs pkexec).
+
+## Run from source
 
 ```bash
 ./run.sh                 # normal user
@@ -31,4 +43,12 @@ Inside the app, **Relaunch as root** does the same as `run-as-root.sh` through p
 
 ```bash
 dotnet publish -c Release -o publish
+```
+
+Release binary (self-contained, single file):
+
+```bash
+dotnet publish -c Release -r linux-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none \
+  -o dist
 ```
