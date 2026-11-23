@@ -1,0 +1,123 @@
+name: Release
+
+# Push a tag like v1.2.3 to build the tarball, .deb and AppImage, attach them to a GitHub
+# release, and update the diskjanitor-bin package on the AUR.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to (re)build, e.g. v1.0.1
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  packages:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build tarball, .deb and AppImage
+        run: packaging/build-packages.sh "${TAG#v}" dist
+
+      - name: Check the binary runs
+        run: |
+          tar -xzf dist/DiskJanitor-linux-x64.tar.gz -C "$RUNNER_TEMP"
+          timeout 120 "$RUNNER_TEMP/DiskJanitor" --report > /dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: dist/
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${TAG#v}"
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          ## Install
+
+          | Format | File | How |
+          |---|---|---|
+          | Debian / Ubuntu | \`diskjanitor_${version}_amd64.deb\` | \`sudo apt install ./diskjanitor_${version}_amd64.deb\` |
+          | Any distro | \`DiskJanitor-x86_64.AppImage\` | \`chmod +x DiskJanitor-x86_64.AppImage && ./DiskJanitor-x86_64.AppImage\` |
+          | Arch | AUR \`diskjanitor-bin\` | \`yay -S diskjanitor-bin\` |
+          | Any distro | \`DiskJanitor-linux-x64.tar.gz\` | extract and run \`./DiskJanitor\` |
+
+          All builds are self-contained 64-bit Linux binaries; .NET does not need to be installed.
+          Checksums are in \`SHA256SUMS\`.
+          EOF
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* --verify-tag --title "Disk Janitor $TAG" \
+              --notes-file "$RUNNER_TEMP/notes.md" --generate-notes
+          fi
+
+  aur:
+    needs: packages
+    runs-on: ubuntu-24.04
+    env:
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: dist
+
+      - name: Fill in PKGBUILD
+        run: packaging/aur/prepare.sh "$TAG" dist/DiskJanitor-linux-x64.tar.gz aur
+
+      # The tarball URL in PKGBUILD points at the release published by the previous job, so this
+      # also checks that the release asset matches the checksum.
+      - name: Build the package on Arch and write .SRCINFO
+        run: |
+          docker run --rm -v "$PWD/aur:/pkg" archlinux:base-devel bash -euc '
+            pacman -Syu --noconfirm --needed namcap > /dev/null
+            useradd -m builder && chown -R builder /pkg
+            su builder -c "cd /pkg && makepkg --nodeps --noconfirm --noprogressbar && makepkg --printsrcinfo > .SRCINFO"
+            namcap /pkg/PKGBUILD || true
+          '
+          cat aur/.SRCINFO
+
+      - name: Push to the AUR
+        if: env.AUR_SSH_PRIVATE_KEY != ''
+        run: |
+          mkdir -p ~/.ssh
+          echo "$AUR_SSH_PRIVATE_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan -t ed25519,rsa aur.archlinux.org >> ~/.ssh/known_hosts 2> /dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/aur -o IdentitiesOnly=yes"
+          git clone ssh://aur@aur.archlinux.org/diskjanitor-bin.git aur-repo
+          cp aur/PKGBUILD aur/.SRCINFO aur/diskjanitor.desktop aur/diskjanitor.png aur-repo/
+          cd aur-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO diskjanitor.desktop diskjanitor.png
+          if git diff --cached --quiet; then
+            echo "AUR package already up to date"
+          else
+            git commit -m "Update to ${TAG#v}"
+            git push origin master
+          fi
+
+      - name: Explain skipped AUR push
+        if: env.AUR_SSH_PRIVATE_KEY == ''
+        run: echo "::notice::AUR_SSH_PRIVATE_KEY secret is not set, so the AUR package was built and checked but not pushed."

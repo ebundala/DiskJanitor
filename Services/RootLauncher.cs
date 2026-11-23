@@ -94,6 +94,10 @@ public static class RootLauncher
 
     static (string Exe, string[] Args) CurrentCommand()
     {
+        // Inside an AppImage the binary lives on a FUSE mount that root cannot read; relaunch the
+        // .AppImage file itself instead.
+        if (Environment.GetEnvironmentVariable("APPIMAGE") is { Length: > 0 } appImage && File.Exists(appImage))
+            return (appImage, []);
         var exe = Environment.ProcessPath ?? "dotnet";
         return Path.GetFileNameWithoutExtension(exe) == "dotnet"
             ? (exe, [Assembly.GetEntryAssembly()!.Location])

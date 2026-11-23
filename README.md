@@ -18,13 +18,16 @@ Card colours: no stripe = nothing known depends on it, orange = referenced by a 
 
 ## Download
 
-Get `DiskJanitor-linux-x64.tar.gz` from [Releases](https://github.com/ebundala/DiskJanitor/releases). It is a single self-contained binary for 64-bit Linux and does not need .NET installed.
+All builds are self-contained 64-bit Linux binaries and do not need .NET installed. Files are on the [Releases](https://github.com/ebundala/DiskJanitor/releases) page.
 
-```bash
-tar -xzf DiskJanitor-linux-x64.tar.gz
-./DiskJanitor            # open the app
-./DiskJanitor --report   # print a scan in the terminal, deletes nothing
-```
+| Distro | Install |
+|---|---|
+| Debian / Ubuntu | download `diskjanitor_<version>_amd64.deb`, then `sudo apt install ./diskjanitor_<version>_amd64.deb` |
+| Arch | `yay -S diskjanitor-bin` (AUR) |
+| Any | download `DiskJanitor-x86_64.AppImage`, `chmod +x` it and run it |
+| Any | extract `DiskJanitor-linux-x64.tar.gz` and run `./DiskJanitor` |
+
+Add `--report` to print a scan in the terminal without deleting anything.
 
 Use **Relaunch as root** inside the app to clean system items (needs pkexec).
 
@@ -45,13 +48,21 @@ Inside the app, **Relaunch as root** does the same as `run-as-root.sh` through p
 dotnet publish -c Release -o publish
 ```
 
-Release binary (self-contained, single file):
+Release packages (tarball, .deb, AppImage) into `dist/`:
 
 ```bash
-dotnet publish -c Release -r linux-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none \
-  -o dist
+packaging/build-packages.sh 1.2.3
 ```
+
+## Releasing
+
+Push a version tag; [.github/workflows/release.yml](.github/workflows/release.yml) builds the packages, publishes the GitHub release and updates the AUR package.
+
+```bash
+git tag -a v1.2.3 -m "Disk Janitor v1.2.3" && git push origin v1.2.3
+```
+
+The AUR push needs an `AUR_SSH_PRIVATE_KEY` repository secret holding a key registered on the AUR account that owns `diskjanitor-bin`. Without it, the workflow still builds and checks the Arch package but does not push it.
 
 ## License
 
