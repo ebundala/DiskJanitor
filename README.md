@@ -31,6 +31,14 @@ Add `--report` to print a scan in the terminal without deleting anything.
 
 Use **Relaunch as root** inside the app to clean system items (needs pkexec).
 
+### WSL
+
+Disk Janitor runs in WSL2. On Windows 11 and recent Windows 10 the window opens through WSLg; install the `.deb` or use the tarball. If the AppImage complains about FUSE, run it with `--appimage-extract-and-run`.
+
+- It cleans the Linux side only (your WSL home and the distro's caches), not Windows folders.
+- WSL stores each distro in a virtual disk (`ext4.vhdx`) that does not shrink by itself, and Docker Desktop's data is in a similar file. After cleaning, compact the disk from PowerShell to give the space back to Windows, for example `wsl --manage <distro> --set-sparse true`, or run `wsl --shutdown` and then `Optimize-VHD` (Hyper-V) or `diskpart`'s `compact vdisk`.
+- **Relaunch as root**, journal cleanup and snap revisions need systemd: set `[boot] systemd=true` in `/etc/wsl.conf` (the default on new Ubuntu installs).
+
 ## Run from source
 
 ```bash
